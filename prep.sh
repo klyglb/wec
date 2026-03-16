@@ -1,11 +1,32 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# RU: Активируем Python-окружение этого образа
-# EN: Activate the Python environment provided by this image
 source /venv/main/bin/activate
-pip install --no-cache-dir onnx
-pip install --no-cache-dir onnxruntime-gpu
+
+# RU: Проверяем обязательные команды
+# EN: Check required commands
+command -v git >/dev/null 2>&1 || { echo "[FATAL] git not found"; exit 1; }
+if ! command -v aria2c >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1 && ! command -v curl >/dev/null 2>&1; then
+  echo "[FATAL] aria2c/wget/curl not found"
+  exit 1
+fi
+
+# RU: Ставим onnx-пакеты только если их нет
+# EN: Install ONNX packages only if they are missing
+python - <<'PY'
+import importlib.util
+import subprocess
+import sys
+
+def ensure(pkg_name, import_name=None):
+    name = import_name or pkg_name
+    if importlib.util.find_spec(name) is None:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--no-cache-dir", pkg_name])
+
+ensure("onnx")
+ensure("onnxruntime-gpu", "onnxruntime")
+PY
+
 COMFYUI_PATH="/workspace/ComfyUI"
 CUSTOM_NODES_DIR="${COMFYUI_PATH}/custom_nodes"
 MODELS_DIR="${COMFYUI_PATH}/models"
@@ -32,7 +53,6 @@ repo_dir_name() {
   basename "${repo_url}" .git
 }
 
-
 sync_node() {
   local repo_url="$1"
   local dir_name
@@ -43,28 +63,25 @@ sync_node() {
     log "Updating node: ${dir_name}"
     git -C "${target_dir}" fetch --all --tags --prune
     if ! git -C "${target_dir}" pull --ff-only; then
-      # RU: Если fast-forward не прошёл, жёстко синхронизируемся с origin
-      # EN: If fast-forward fails, hard reset to remote HEAD
       local default_branch
       default_branch="$(git -C "${target_dir}" remote show origin | sed -n '/HEAD branch/s/.*: //p')"
       [[ -n "${default_branch}" ]] || default_branch="main"
       git -C "${target_dir}" fetch origin "${default_branch}"
       git -C "${target_dir}" reset --hard "origin/${default_branch}"
-      git -C "${target_dir}" submodule update --init --recursive
     fi
+    # RU: Всегда синхронизируем submodules
+    # EN: Always sync submodules
+    git -C "${target_dir}" submodule update --init --recursive
   else
     log "Cloning node: ${dir_name}"
     git clone --recursive "${repo_url}" "${target_dir}"
   fi
 
-  # RU: Ставим Python-зависимости ноды, если они есть
-  # EN: Install Python dependencies for the node if requirements.txt exists
   if [[ -f "${target_dir}/requirements.txt" ]]; then
     log "Installing requirements for: ${dir_name}"
     pip install --no-cache-dir -r "${target_dir}/requirements.txt"
   fi
 }
-
 
 download_if_missing() {
   local dst="$1"
@@ -82,11 +99,8 @@ download_if_missing() {
     aria2c -x 8 -s 8 -k 1M -d "$(dirname "${dst}")" -o "$(basename "${dst}")" "${url}"
   elif command -v wget >/dev/null 2>&1; then
     wget -O "${dst}" "${url}"
-  elif command -v curl >/dev/null 2>&1; then
-    curl -L --fail -o "${dst}" "${url}"
   else
-    echo "[FATAL] aria2c/wget/curl not found" >&2
-    exit 1
+    curl -L --fail -o "${dst}" "${url}"
   fi
 }
 
@@ -94,12 +108,9 @@ log "=== Installing Wan2.2 Animate required nodes ==="
 
 sync_node "https://github.com/kijai/ComfyUI-KJNodes"
 sync_node "https://github.com/Fannovel16/comfyui_controlnet_aux"
-
-
 sync_node "https://github.com/kijai/ComfyUI-WanVideoWrapper"
 sync_node "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite"
-
-log "=== Downloading Wan2.2 Animate models ==="
+sync_node "https://github.com/kijai/ComfyUI-segment-anything-2"
 
 download_if_missing \
   "${MODELS_DIR}/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors" \
