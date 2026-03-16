@@ -4,7 +4,8 @@ set -euo pipefail
 # RU: Активируем Python-окружение этого образа
 # EN: Activate the Python environment provided by this image
 source /venv/main/bin/activate
-
+pip install --no-cache-dir onnx
+pip install --no-cache-dir onnxruntime-gpu
 COMFYUI_PATH="/workspace/ComfyUI"
 CUSTOM_NODES_DIR="${COMFYUI_PATH}/custom_nodes"
 MODELS_DIR="${COMFYUI_PATH}/models"
