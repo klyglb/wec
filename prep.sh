@@ -26,15 +26,12 @@ log() {
   echo "[INFO] $*"
 }
 
-# RU: Определяем имя папки репозитория
-# EN: Derive repository directory name from URL
 repo_dir_name() {
   local repo_url="$1"
   basename "${repo_url}" .git
 }
 
-# RU: Клонируем или обновляем custom node
-# EN: Clone or update a custom node repository
+
 sync_node() {
   local repo_url="$1"
   local dir_name
@@ -67,8 +64,7 @@ sync_node() {
   fi
 }
 
-# RU: Скачивание файла с fallback на aria2c / wget / curl
-# EN: Download file with fallback to aria2c / wget / curl
+
 download_if_missing() {
   local dst="$1"
   local url="$2"
@@ -95,13 +91,10 @@ download_if_missing() {
 
 log "=== Installing Wan2.2 Animate required nodes ==="
 
-# RU: Минимально нужные ноды для Wan2.2 Animate native/full workflow
-# EN: Minimum required nodes for Wan2.2 Animate native/full workflow
 sync_node "https://github.com/kijai/ComfyUI-KJNodes"
 sync_node "https://github.com/Fannovel16/comfyui_controlnet_aux"
 
-# RU: Часто полезно для расширенных workflow Kijai/Wan
-# EN: Often useful for extended Kijai/Wan workflows
+
 sync_node "https://github.com/kijai/ComfyUI-WanVideoWrapper"
 sync_node "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite"
 
